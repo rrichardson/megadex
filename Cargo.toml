@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "megadex",
+    "megadex_derive",
+]

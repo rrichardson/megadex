@@ -1,0 +1,26 @@
+[package]
+name = "megadex_derive"
+description = """
+Syntactic sugar for managing collections of structs which have multiple indexed accessors. 
+"""
+edition = '2018' 
+version = "0.0.6"
+authors = ["Rick Richardson <rick.richardson@gmail.com>"]
+license = "MIT"
+
+categories = ["development-tools::procedural-macro-helpers", "database"]
+keywords = ["macro", "rkv", "lmdb"]
+readme = "README.md"
+repository = "https://github.com/rrichardson/megadex"
+
+[badges]
+travis-ci = { repository = "https://github.com/Hoverbear/getset" }
+appveyor = { repository = "https://github.com/Hoverbear/getset", service = "github" }
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "0.6.10"
+syn = "0.15.21"
+proc-macro2 = { version = "0.4.24", default-features = false }
