@@ -1,6 +1,6 @@
 use bincode::ErrorKind as BinError;
 use failure::Fail;
-use rkv::{StoreError, Value};
+use rkv::{StoreError};
 use std::io::Error as IoError;
 use std::sync::PoisonError;
 
