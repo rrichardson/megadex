@@ -10,3 +10,6 @@ tempfile = "3.0.4"
 serde = "1.0.80"
 bincode = "1.0.1"
 failure = "0.1.3"
+
+[dev-dependencies]
+serde_derive = "*"
