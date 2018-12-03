@@ -62,7 +62,8 @@ where
         Ok(md)
     }
 
-    /// Construct a new collection of indexes in the supplied directory.
+    /// Construct a new collection of indexes in the supplied directory,
+    /// or if one already exists, it will use it.
     /// This will create The main struct store for T and
     /// the supporting secondary indexes to find the id for T
     pub fn new<'p, P: Into<&'p Path>>(
