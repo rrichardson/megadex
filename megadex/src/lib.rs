@@ -16,6 +16,16 @@ use serde_derive;
 
 use crate::error::MegadexError;
 
+/// A specialized database that is persisted to the provided directory. This will store 
+/// structs which implement `Serialize` and `DeserializeOwned`.  It will also index
+/// those structs by any additional fields that you specify. 
+///
+/// This is a sparse and rather specialized API as it is intended to be used with 
+/// the megadex_derive crate.
+///
+/// NOTE: If you plan on deleting this object later, DO NOT MUTATE it. 
+/// Deletion from the db requires that the serialized bytes of T that are passed into
+/// `del` must exactly match what is stored in the DB
 pub struct Megadex<T> {
     env: Arc<RwLock<Rkv>>,
     main: MultiStore,
@@ -90,6 +100,11 @@ where
         Ok(())
     }
 
+    /// Retrieve T from the database at the given id. 
+    /// Returns `None` if there is no value present for the id
+    /// NOTE: If you plan on deleting this object later, DO NOT MUTATE it. 
+    /// Deletion from the db requires that the serialized bytes of T that are passed into
+    /// `del` must exactly match what is stored in the DB
     pub fn get(&self, id: &str) -> Result<Option<T>, MegadexError> {
         let envlock = self.env.read().expect("Failed to acquire read lock");
         let reader = envlock.read_multi()?;
@@ -100,6 +115,10 @@ where
         }
     }
 
+    /// Retrieve all objects that are indexed by the provided field
+    /// NOTE: If you plan on deleting this object later, DO NOT MUTATE it. 
+    /// Deletion from the db requires that the serialized bytes of T that are passed into
+    /// `del` must exactly match what is stored in the DB
     pub fn get_by_field(&self, name: &str, key: &str) -> Result<Vec<T>, MegadexError> {
         let envlock = self.env.read().expect("Failed to acquire read lock");
         let reader = envlock.read_multi()?;
@@ -119,6 +138,7 @@ where
         }
     }
 
+    /// Retrieve all ids that are indexed by the provided field
     pub fn get_ids_by_field<'s>(
         &self,
         reader: &'s MultiReader<&'s str>,
@@ -132,6 +152,7 @@ where
         reader.get(*idstore, key).map(Some).map_err(|e| e.into())
     }
 
+    /// Store an object of type T indexed by id
     pub fn put(&self, id: &str, obj: &T, fields: &[(String, String)]) -> Result<(), MegadexError> {
         let envlock = self.env.read().expect("Failed to acquire read lock");
         let mut writer: MultiWriter<&str> = envlock.write_multi()?;
@@ -170,6 +191,9 @@ where
             .map_err(|e| e.into())
     }
 
+    /// Delete an object and all of its indexed fields. 
+    /// Note that the obj, `T` must be in the exact state in which it was put into the DB
+    /// for it to be successfully deleted. 
     pub fn del(&self, id: &str, obj: &T, fields: &[(String, String)]) -> Result<(), MegadexError> {
         let envlock = self.env.read().expect("Failed to acquire read lock");
         let mut writer: MultiWriter<&str> = envlock.write_multi()?;
