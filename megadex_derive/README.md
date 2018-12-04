@@ -1,39 +1,49 @@
-# getset
+# Megadex Derive
 
 [![Build Status](https://travis-ci.org/Hoverbear/getset.svg?branch=master)](https://travis-ci.org/Hoverbear/getset)
 [![Build status](https://ci.appveyor.com/api/projects/status/w8v2poyjwsy5d05k?svg=true)](https://ci.appveyor.com/project/Hoverbear/getset)
 
-Getset, we're ready to go!
+A procedural macro which provides a `Derive` trait called `Megadex`
 
-A procedural macro for generating the most basic getters and setters on fields.
+This provides the use of two field-level attributes: `#[id]` and `#[indexed]` 
 
-Getters are generated as `fn field(&self) -> &type`, while setters are generated as `fn field(&mut self, val: type)`.
+You use `id` to indicate which field in your struct contains the primary key. 
 
-These macros are not intended to be used on fields which require custom logic inside of their setters and getters. Just write your own in that case!
+You use `indexed` to indicate any fields by which you want to retrieve this (and other) struct(s)
 
-> Yes! It supports nightly with `pub(crate)` etc!
-
+### Usage: 
 ```rust
-#[macro_use]
-extern crate getset;
 
-#[derive(Getters, Setters, MutGetters, Default)]
-pub struct Foo<T> where T: Copy + Clone + Default {
-    /// Doc comments are supported!
-    /// Multiline, even.
-    #[get] #[set] #[get_mut]
-    private: T,
+#[derive(Megadex)]
+struct Foo {
+  #[id]
+  my_id: String,
+  weeee: String,
+  #[indexed]
+  bar: String,
 
-    /// Doc comments are supported!
-    /// Multiline, even.
-    #[get = "pub"] #[set = "pub"] #[get_mut = "pub"]
-    public: T,
+  #[indexed]
+  baz: String,
 }
 
-fn main() {
-    let mut foo = Foo::default();
-    foo.set_private(1);
-    (*foo.private_mut()) += 1;
-    assert_eq!(*foo.private(), 2);
-}
+// This would add these methods to your struct: 
+
+fn save(&self)
+
+fn insert(id, other)
+
+fn erase(&self)
+
+fn del(id, other) 
+
+fn get(id, other)
+
+fn find_by_bar(key: &String)
+
+fn id_by_bar(key: &String)
+
+fn find_by_baz(key: &String)
+
+fn id_by_bar(key: &String)
+
 ```
