@@ -56,49 +56,49 @@ impl PartialEq for MegadexError {
                 } else {
                     false
                 }
-            }
+            },
             BincodeError(_) => {
                 if let BincodeError(_) = other {
                     true
                 } else {
                     false
                 }
-            }
+            },
             IoError(_) => {
                 if let IoError(_) = other {
                     true
                 } else {
                     false
                 }
-            }
+            },
             MutexError(e) => {
                 if let MutexError(s) = other {
                     e == s
                 } else {
                     false
                 }
-            }
+            },
             IndexUndefined(e) => {
                 if let IndexUndefined(s) = other {
                     e == s
                 } else {
                     false
                 }
-            }
+            },
             InvalidType(e, i) => {
                 if let InvalidType(a, b) = other {
                     e == a && i == b
                 } else {
                     false
                 }
-            }
+            },
             ValueError(e) => {
                 if let ValueError(s) = other {
                     e == s
                 } else {
                     false
                 }
-            }
+            },
         }
     }
 }

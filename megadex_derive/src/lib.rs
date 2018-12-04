@@ -1,3 +1,4 @@
+#![recursion_limit = "128"]
 /*!
 MEGADEX
 
@@ -37,8 +38,16 @@ extern crate proc_macro2;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use proc_macro2::{Ident, Span};
-use syn::{Attribute, DataStruct, DeriveInput, Field};
+use proc_macro2::{
+    Ident,
+    Span,
+};
+use syn::{
+    Attribute,
+    DataStruct,
+    DeriveInput,
+    Field,
+};
 
 fn find_attr_name<'s>(field: &'s Field, name: &str) -> Option<&'s Attribute> {
     field.attrs.iter().find(|a| a.interpret_meta().map(|v| v.name()).expect("no name for attribute?") == name)
@@ -119,40 +128,38 @@ impl Builder {
     }
 
     fn gen_methods(&self) -> Vec<TokenStream2> {
-  
-        let mut fieldvec = self.fields.iter().map(|f| {
-            format!("\"{}\",", f.clone().ident.unwrap())
-        }).collect::<Vec<String>>();
+        let mut fieldvec =
+            self.fields.iter().map(|f| format!("\"{}\",", f.clone().ident.unwrap())).collect::<Vec<String>>();
         fieldvec.insert(0, "[".into());
         fieldvec.push("]".into());
-        
-        let mut fieldtuples = self.fields.iter().map(|f| {
-            let field = f.clone().ident.unwrap();
-            format!("\"({}, self.{}.as_bytes())\",", field, field)
-        }).collect::<Vec<String>>();
+
+        let mut fieldtuples = self
+            .fields
+            .iter()
+            .map(|f| {
+                let field = f.clone().ident.unwrap();
+                format!("\"({}, self.{}.as_bytes())\",", field, field)
+            })
+            .collect::<Vec<String>>();
         fieldtuples.insert(0, "[".into());
         fieldtuples.push("]".into());
 
-        let mut streams =
-            self.fields.iter().map(|field| {
-                let field_name = field
-                    .clone()
-                    .ident
-                    .expect("Expected the field to have a name");
+        let fieldtuples2 = fieldtuples.clone();
+        let fieldtuples3 = fieldtuples.clone();
+        let fieldtuples4 = fieldtuples.clone();
+        let fieldtuples5 = fieldtuples.clone();
 
-                let mdex = Ident::new(
-                    &format!("Megadex<{}>", self.typename.clone()),
-                    Span::call_site());
+        let mut streams = self
+            .fields
+            .iter()
+            .map(|field| {
+                let field_name = field.clone().ident.expect("Expected the field to have a name");
 
-                let fn_find_by = Ident::new(
-                    &format!("find_by_{}", field_name),
-                    Span::call_site(),
-                );
-             
-                let fn_id_by = Ident::new(
-                    &format!("id_by_{}", field_name),
-                    Span::call_site(),
-                );
+                let mdex = Ident::new(&format!("Megadex<{}>", self.typename.clone()), Span::call_site());
+
+                let fn_find_by = Ident::new(&format!("find_by_{}", field_name), Span::call_site());
+
+                let fn_id_by = Ident::new(&format!("id_by_{}", field_name), Span::call_site());
 
                 let ty = field.ty.clone();
 
@@ -173,45 +180,39 @@ impl Builder {
             .collect::<Vec<TokenStream2>>();
 
         let id = self.id.as_ref().expect("At least 1 id attribute field must be specified");
-        let field_name = id
-            .clone()
-            .ident
-            .expect("Expected the field to have a name");
-        
+        let id_name = id.clone().ident.expect("Expected the field to have a name");
+
         let mytype = self.typename.clone();
 
-        let mdex = Ident::new(
-            &format!("Megadex<{}>", &mytype),
-            Span::call_site());
+        let mdex = Ident::new(&format!("Megadex<{}>", &mytype), Span::call_site());
 
         let ty = id.ty.clone();
 
-        let str = 
-            quote! {
-                pub  fn init(db: Db) -> Result<#mdex, MegadexError> {
-                    Megadex::new(db, #(#fieldvec)*)
-                }
+        let str = quote! {
+            pub  fn init(db: Db) -> Result<#mdex, MegadexError> {
+                Megadex::new(db, #(#fieldvec)*)
+            }
 
-                pub fn save(&self, md: &#mdex) -> Result<(), MegadexError> {
-                    md.put(md, self.id.as_bytes(), self, #(#fieldtuples)*)
-                }
+            pub fn save(&self, md: &#mdex) -> Result<(), MegadexError> {
+                md.put(md, self.#id_name.as_bytes(), self, #(#fieldtuples2)*)
+            }
 
-                pub fn erase(&self, md: &#mdex) -> Result<(), MegadexError> {
-                    md.del(md, self.id.as_bytes(), self, #(#fieldtuples)*)
-                }
+            pub fn erase(&self, md: &#mdex) -> Result<(), MegadexError> {
+                md.del(md, self.#id_name.as_bytes(), self, #(#fieldtuples3)*)
+            }
 
-                pub fn get(md: &#mdex, id: &#ty) -> Result<Option<Self>, MegadexError> {
-                    md.get(id.as_bytes()) 
-                }
+            pub fn get(md: &#mdex, id: &#ty) -> Result<Option<Self>, MegadexError> {
+                md.get(id.as_bytes())
+            }
 
-                pub fn del(md: &#mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexError> {
-                    md.del(md, id.as_bytes(), &bincode::serialize(val)?.map_err(e.into()), #(#fieldtuples)*)
-                }
+            pub fn del(md: &#mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexError> {
+                md.del(md, id.as_bytes(), &bincode::serialize(val)?.map_err(e.into()), #(#fieldtuples4)*)
+            }
 
-                pub fn insert(md: &#mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexError> {
-                    md.put(md, id.as_bytes(), &bincode::serialize(val)?.map_err(e.into()), #(#fieldtuples)*)
-                }
-            };
+            pub fn insert(md: &#mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexError> {
+                md.put(md, id.as_bytes(), &bincode::serialize(val)?.map_err(e.into()), #(#fieldtuples5)*)
+            }
+        };
 
         streams.push(str);
 

@@ -1,7 +1,11 @@
 #[macro_use]
 extern crate getset;
 
-use submodule::other::{Generic, Plain, Where};
+use submodule::other::{
+    Generic,
+    Plain,
+    Where,
+};
 
 // For testing `pub(super)`
 mod submodule {
