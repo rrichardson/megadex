@@ -16,7 +16,40 @@ use serde_derive;
 
 use crate::error::MegadexError;
 
-/// A specialized database that is persisted to the provided directory. This will store 
+/// A specialized database environment that is persisted to the provided directory.
+#[derive(Clone)]
+pub struct Db {
+    env: Arc<RwLock<Rkv>>,
+}
+
+impl Db {
+    /// Construct a new collection of indexes in a temp directory
+    /// This will create The main struct store for T and
+    /// the supporting secondary indexes to find the id for T
+    pub fn new_temp() -> Result<Db, MegadexError> {
+        let root = Builder::new().prefix("megadex").tempdir()?;
+        fs::create_dir_all(root.path())?;
+        let mut writer = Manager::singleton()
+            .write()
+            .expect("Failed to get Manager Singleton writer");
+        let env = writer.get_or_create(root.path(), Rkv::new)?;
+        Ok(Db{env})
+    }
+    
+    /// Construct a new collection of indexes in the supplied directory,
+    /// or if one already exists, it will use it.
+    /// This will create The main struct store for T and
+    /// the supporting secondary indexes to find the id for T
+    pub fn new<'p, P: Into<&'p Path>>( dir: P) -> Result<Db, MegadexError> {
+        let mut writer = Manager::singleton()
+            .write()
+            .expect("Failed to get Manager Singleton writer");
+        let env = writer.get_or_create(dir, Rkv::new)?;
+        Ok(Db{env})
+    }
+}
+
+/// A specialized database table that is persisted to the provided directory. This will store 
 /// structs which implement `Serialize` and `DeserializeOwned`.  It will also index
 /// those structs by any additional fields that you specify. 
 ///
@@ -37,16 +70,8 @@ impl<T> Megadex<T>
 where
     T: Serialize + DeserializeOwned,
 {
-    /// Construct a new collection of indexes in a temp directory
-    /// This will create The main struct store for T and
-    /// the supporting secondary indexes to find the id for T
-    pub fn new_temp(fields: Vec<&str>) -> Result<Megadex<T>, MegadexError> {
-        let root = Builder::new().prefix("megadex").tempdir()?;
-        fs::create_dir_all(root.path())?;
-        let mut writer = Manager::singleton()
-            .write()
-            .expect("Failed to get Manager Singleton writer");
-        let env = writer.get_or_create(root.path(), Rkv::new)?;
+    pub fn new(db: Db, fields: &[&str]) -> Result<Megadex<T>, MegadexError> {
+        let env = db.env;
         let store = env
             .write()
             .expect("failed to acquire env write lock")
@@ -62,41 +87,14 @@ where
         Ok(md)
     }
 
-    /// Construct a new collection of indexes in the supplied directory,
-    /// or if one already exists, it will use it.
-    /// This will create The main struct store for T and
-    /// the supporting secondary indexes to find the id for T
-    pub fn new<'p, P: Into<&'p Path>>(
-        dir: P,
-        fields: Vec<&str>,
-    ) -> Result<Megadex<T>, MegadexError> {
-        let mut writer = Manager::singleton()
-            .write()
-            .expect("Failed to get Manager Singleton writer");
-        let env = writer.get_or_create(dir, Rkv::new)?;
-        let store = env
-            .write()
-            .expect("failed to acquire env write lock")
-            .open_or_create_multi(Some("_main_"))?;
-
-        let mut md = Megadex {
-            env,
-            main: store,
-            indices: HashMap::new(),
-            p: PhantomData,
-        };
-        md.insert_fields(fields)?;
-        Ok(md)
-    }
-
-    fn insert_fields(&mut self, fields: Vec<&str>) -> Result<(), MegadexError> {
+    fn insert_fields(&mut self, fields: &[&str]) -> Result<(), MegadexError> {
         for f in fields.into_iter() {
             let store = self
                 .env
                 .write()
                 .expect("failed to acquire env write lock")
-                .open_or_create_multi(Some(f))?;
-            self.indices.insert(f.into(), store);
+                .open_or_create_multi(Some(f.to_owned()))?;
+            self.indices.insert((*f).into(), store);
         }
         Ok(())
     }
@@ -106,10 +104,10 @@ where
     /// NOTE: If you plan on deleting this object later, DO NOT MUTATE it. 
     /// Deletion from the db requires that the serialized bytes of T that are passed into
     /// `del` must exactly match what is stored in the DB
-    pub fn get(&self, id: &str) -> Result<Option<T>, MegadexError> {
+    pub fn get(&self, id: &[u8]) -> Result<Option<T>, MegadexError> {
         let envlock = self.env.read().expect("Failed to acquire read lock");
         let reader = envlock.read_multi()?;
-        if let Some(OwnedValue::Blob(blob)) = reader.get_first(self.main, id.as_bytes())? {
+        if let Some(OwnedValue::Blob(blob)) = reader.get_first(self.main, id)? {
             bincode::deserialize(&blob).map(Some).map_err(|e| e.into())
         } else {
             Ok(None)
@@ -120,14 +118,14 @@ where
     /// NOTE: If you plan on deleting this object later, DO NOT MUTATE it. 
     /// Deletion from the db requires that the serialized bytes of T that are passed into
     /// `del` must exactly match what is stored in the DB
-    pub fn get_by_field(&self, name: &str, key: &str) -> Result<Vec<T>, MegadexError> {
+    pub fn get_by_field(&self, name: &str, key: &[u8]) -> Result<Vec<T>, MegadexError> {
         let envlock = self.env.read().expect("Failed to acquire read lock");
         let reader = envlock.read_multi()?;
         let res = self.get_ids_by_field(&reader, name, key)?;
         if res.is_some() {
             let ids = res.unwrap();
             ids.map(|(id, _)| {
-                match reader.get_first(self.main, std::str::from_utf8(id).unwrap())? {
+                match reader.get_first(self.main, id)? {
                     Some(OwnedValue::Blob(o)) => bincode::deserialize(&o).map_err(|e| e.into()),
                     None => Err(MegadexError::ValueError("Object not found for id".into())),
                     e => Err(MegadexError::InvalidType("Blob".into(), format!("{:?}", e))),
@@ -142,9 +140,9 @@ where
     /// Retrieve all ids that are indexed by the provided field
     pub fn get_ids_by_field<'s>(
         &self,
-        reader: &'s MultiReader<&'s str>,
+        reader: &'s MultiReader<&'s [u8]>,
         name: &str,
-        key: &'s str,
+        key: &'s [u8],
     ) -> Result<Option<MDIter<'s>>, MegadexError> {
         let idstore = self
             .indices
@@ -154,20 +152,20 @@ where
     }
 
     /// Store an object of type T indexed by id
-    pub fn put(&self, id: &str, obj: &T, fields: &[(String, String)]) -> Result<(), MegadexError> {
+    pub fn put(&self, id: &[u8], obj: &T, fields: &[(&str, &[u8])]) -> Result<(), MegadexError> {
         let envlock = self.env.read().expect("Failed to acquire read lock");
-        let mut writer: MultiWriter<&str> = envlock.write_multi()?;
+        let mut writer: MultiWriter<&[u8]> = envlock.write_multi()?;
         self.put_id_txn(&mut writer, id, obj)?;
         for (field, key) in fields.iter() {
-            self.put_field_txn(&mut writer, field, key.as_str(), id)?;
+            self.put_field_txn(&mut writer, field, key, id)?;
         }
         writer.commit().map_err(|e| e.into())
     }
 
     fn put_id_txn<'env, 's>(
         &self,
-        writer: &mut MultiWriter<'env, &'s str>,
-        id: &'s str,
+        writer: &mut MultiWriter<'env, &'s [u8]>,
+        id: &'s [u8],
         obj: &T,
     ) -> Result<(), MegadexError> {
         let blob = bincode::serialize(obj)?;
@@ -178,24 +176,24 @@ where
 
     fn put_field_txn<'env, 's>(
         &self,
-        writer: &mut MultiWriter<'env, &'s str>,
+        writer: &mut MultiWriter<'env, &'s [u8]>,
         field: &str,
-        key: &'s str,
-        id: &str,
+        key: &'s [u8],
+        id: &[u8],
     ) -> Result<(), MegadexError> {
         let idstore = self
             .indices
             .get(field)
             .ok_or_else(|| MegadexError::IndexUndefined(field.into()))?;
         writer
-            .put(*idstore, key, &Value::Str(id))
+            .put(*idstore, key, &Value::Blob(id))
             .map_err(|e| e.into())
     }
 
     /// Delete an object and all of its indexed fields. 
     /// Note that the obj, `T` must be in the exact state in which it was put into the DB
     /// for it to be successfully deleted. 
-    pub fn del(&self, id: &str, obj: &T, fields: &[(String, String)]) -> Result<(), MegadexError> {
+    pub fn del(&self, id: &[u8], obj: &T, fields: &[(String, String)]) -> Result<(), MegadexError> {
         let envlock = self.env.read().expect("Failed to acquire read lock");
         let mut writer: MultiWriter<&str> = envlock.write_multi()?;
         let blob = bincode::serialize(obj).map_err(|e| -> MegadexError { e.into() })?;
@@ -240,29 +238,30 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let db: Megadex<Weee> = Megadex::new_temp(vec!["a", "b"]).unwrap();
+        let db = Db::new_temp().unwrap();
+        let md : Megadex<Weee> = Megadex::new(db, &["a", "b"][..]).unwrap();
         let w = Weee {
             id: "wat".into(),
             a: 42,
             b: "lalalala".into(),
         };
 
-        db.put(&w.id, &w, &vec![("b".into(), w.b.clone())]).unwrap();
-        let lala = db.get(&w.id).unwrap();
+        md.put(w.id.as_bytes(), &w, &vec![("b", w.b.as_bytes())]).unwrap();
+        let lala = md.get(w.id.as_bytes()).unwrap();
         assert_eq!(Some(w.clone()), lala);
 
-        let ha = db.get_by_field("b", &w.b.clone()).unwrap();
+        let ha = md.get_by_field("b", w.b.as_bytes()).unwrap();
         assert_eq!(ha, vec![w.clone()]);
 
-        let res = db.get_by_field("c", &w.b.clone()).err().unwrap();
+        let res = md.get_by_field("c", w.b.as_bytes()).err().unwrap();
         assert_eq!(MegadexError::IndexUndefined("c".into()), res);
 
-        db.del(&w.id, &w, &vec![("b".into(), w.b.clone())]).unwrap();
+        md.del(&w.id, &w, &vec![("b".into(), w.b.clone())]).unwrap();
 
-        let lala = db.get(&w.id).unwrap();
+        let lala = md.get(w.id.as_bytes()).unwrap();
         assert_eq!(None, lala);
 
-        let ha = db.get_by_field("b", &w.b.clone()).unwrap();
+        let ha = md.get_by_field("b", &w.b.as_bytes()).unwrap();
         assert_eq!(ha, vec![]);
     }
 }
