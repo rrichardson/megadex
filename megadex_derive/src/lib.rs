@@ -17,7 +17,7 @@ extern crate megadex;
 #[derive(Serialize, Deserialize, Megadex)]
 pub struct Foo {
     id: String,
-    
+
 }
 
 fn main() {
@@ -36,25 +36,18 @@ extern crate quote;
 extern crate proc_macro2;
 
 use proc_macro::TokenStream;
-use syn::{DataStruct, DeriveInput, Field, Attribute};
-use proc_macro2::{Ident, Span};
 use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Ident, Span};
+use syn::{Attribute, DataStruct, DeriveInput, Field};
 
 fn find_attr_name<'s>(field: &'s Field, name: &str) -> Option<&'s Attribute> {
-    field
-        .attrs
-        .iter()
-        .find(|a| { 
-            a.interpret_meta()
-                .map(|v| v.name())
-                .expect("no name for attribute?") == name
-        })
+    field.attrs.iter().find(|a| a.interpret_meta().map(|v| v.name()).expect("no name for attribute?") == name)
 }
 
 #[proc_macro_derive(Megadex, attributes(indexed, id))]
 pub fn megadex(input: TokenStream) -> TokenStream {
     // Parse the string representation
-    let ast : DeriveInput = syn::parse(input).expect("Couldn't parse for getters");
+    let ast: DeriveInput = syn::parse(input).expect("Couldn't parse for getters");
 
     let mut builder = Builder::new(&ast);
     let gen = builder.run(&ast);
@@ -62,13 +55,12 @@ pub fn megadex(input: TokenStream) -> TokenStream {
 }
 
 struct Builder {
-   fields: Vec<Field>,
-   id: Option<Field>,
-   typename: Ident,
+    fields: Vec<Field>,
+    id: Option<Field>,
+    typename: Ident,
 }
 
 impl Builder {
-
     pub fn new(ast: &DeriveInput) -> Builder {
         Builder {
             fields: Vec::new(),
@@ -83,7 +75,11 @@ impl Builder {
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
         // Is it a struct?
-        if let syn::Data::Struct(DataStruct { ref fields, .. }) = ast.data {
+        if let syn::Data::Struct(DataStruct {
+            ref fields,
+            ..
+        }) = ast.data
+        {
             // let _stock_methods = create_stock(name);
             for f in fields.iter() {
                 let id_attr = find_attr_name(f, "id").is_some();
@@ -111,9 +107,12 @@ impl Builder {
         self.fields.push(field.clone());
     }
 
-    fn handle_id(&mut self,field: &Field) {
+    fn handle_id(&mut self, field: &Field) {
         if let Some(ref id) = self.id {
-            panic!("There can only be 1 id field specified per struct. Id is already an attribute on {}", id.clone().ident.unwrap());
+            panic!(
+                "There can only be 1 id field specified per struct. Id is already an attribute on {}",
+                id.clone().ident.unwrap()
+            );
         } else {
             self.id = Some(field.clone())
         }
@@ -170,8 +169,8 @@ impl Builder {
                     }
 
                 }
-            }).collect::<Vec<TokenStream2>>();
-
+            })
+            .collect::<Vec<TokenStream2>>();
 
         let id = self.id.as_ref().expect("At least 1 id attribute field must be specified");
         let field_name = id
