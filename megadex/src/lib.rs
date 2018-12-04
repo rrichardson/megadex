@@ -16,14 +16,14 @@ use serde_derive;
 
 use crate::error::MegadexError;
 
-/// A specialized database that is persisted to the provided directory. This will store 
+/// A specialized database that is persisted to the provided directory. This will store
 /// structs which implement `Serialize` and `DeserializeOwned`.  It will also index
-/// those structs by any additional fields that you specify. 
+/// those structs by any additional fields that you specify.
 ///
-/// This is a sparse and rather specialized API as it is intended to be used with 
+/// This is a sparse and rather specialized API as it is intended to be used with
 /// the megadex_derive crate.
 ///
-/// NOTE: If you plan on deleting this object later, DO NOT MUTATE it. 
+/// NOTE: If you plan on deleting this object later, DO NOT MUTATE it.
 /// Deletion from the db requires that the serialized bytes of T that are passed into
 /// `del` must exactly match what is stored in the DB
 pub struct Megadex<T> {
@@ -43,14 +43,9 @@ where
     pub fn new_temp(fields: Vec<&str>) -> Result<Megadex<T>, MegadexError> {
         let root = Builder::new().prefix("megadex").tempdir()?;
         fs::create_dir_all(root.path())?;
-        let mut writer = Manager::singleton()
-            .write()
-            .expect("Failed to get Manager Singleton writer");
+        let mut writer = Manager::singleton().write().expect("Failed to get Manager Singleton writer");
         let env = writer.get_or_create(root.path(), Rkv::new)?;
-        let store = env
-            .write()
-            .expect("failed to acquire env write lock")
-            .open_or_create_multi(Some("_main_"))?;
+        let store = env.write().expect("failed to acquire env write lock").open_or_create_multi(Some("_main_"))?;
 
         let mut md = Megadex {
             env,
@@ -66,18 +61,10 @@ where
     /// or if one already exists, it will use it.
     /// This will create The main struct store for T and
     /// the supporting secondary indexes to find the id for T
-    pub fn new<'p, P: Into<&'p Path>>(
-        dir: P,
-        fields: Vec<&str>,
-    ) -> Result<Megadex<T>, MegadexError> {
-        let mut writer = Manager::singleton()
-            .write()
-            .expect("Failed to get Manager Singleton writer");
+    pub fn new<'p, P: Into<&'p Path>>(dir: P, fields: Vec<&str>) -> Result<Megadex<T>, MegadexError> {
+        let mut writer = Manager::singleton().write().expect("Failed to get Manager Singleton writer");
         let env = writer.get_or_create(dir, Rkv::new)?;
-        let store = env
-            .write()
-            .expect("failed to acquire env write lock")
-            .open_or_create_multi(Some("_main_"))?;
+        let store = env.write().expect("failed to acquire env write lock").open_or_create_multi(Some("_main_"))?;
 
         let mut md = Megadex {
             env,
@@ -91,19 +78,15 @@ where
 
     fn insert_fields(&mut self, fields: Vec<&str>) -> Result<(), MegadexError> {
         for f in fields.into_iter() {
-            let store = self
-                .env
-                .write()
-                .expect("failed to acquire env write lock")
-                .open_or_create_multi(Some(f))?;
+            let store = self.env.write().expect("failed to acquire env write lock").open_or_create_multi(Some(f))?;
             self.indices.insert(f.into(), store);
         }
         Ok(())
     }
 
-    /// Retrieve T from the database at the given id. 
+    /// Retrieve T from the database at the given id.
     /// Returns `None` if there is no value present for the id
-    /// NOTE: If you plan on deleting this object later, DO NOT MUTATE it. 
+    /// NOTE: If you plan on deleting this object later, DO NOT MUTATE it.
     /// Deletion from the db requires that the serialized bytes of T that are passed into
     /// `del` must exactly match what is stored in the DB
     pub fn get(&self, id: &str) -> Result<Option<T>, MegadexError> {
@@ -117,7 +100,7 @@ where
     }
 
     /// Retrieve all objects that are indexed by the provided field
-    /// NOTE: If you plan on deleting this object later, DO NOT MUTATE it. 
+    /// NOTE: If you plan on deleting this object later, DO NOT MUTATE it.
     /// Deletion from the db requires that the serialized bytes of T that are passed into
     /// `del` must exactly match what is stored in the DB
     pub fn get_by_field(&self, name: &str, key: &str) -> Result<Vec<T>, MegadexError> {
@@ -126,12 +109,10 @@ where
         let res = self.get_ids_by_field(&reader, name, key)?;
         if res.is_some() {
             let ids = res.unwrap();
-            ids.map(|(id, _)| {
-                match reader.get_first(self.main, std::str::from_utf8(id).unwrap())? {
-                    Some(OwnedValue::Blob(o)) => bincode::deserialize(&o).map_err(|e| e.into()),
-                    None => Err(MegadexError::ValueError("Object not found for id".into())),
-                    e => Err(MegadexError::InvalidType("Blob".into(), format!("{:?}", e))),
-                }
+            ids.map(|(id, _)| match reader.get_first(self.main, std::str::from_utf8(id).unwrap())? {
+                Some(OwnedValue::Blob(o)) => bincode::deserialize(&o).map_err(|e| e.into()),
+                None => Err(MegadexError::ValueError("Object not found for id".into())),
+                e => Err(MegadexError::InvalidType("Blob".into(), format!("{:?}", e))),
             })
             .collect()
         } else {
@@ -146,10 +127,7 @@ where
         name: &str,
         key: &'s str,
     ) -> Result<Option<MDIter<'s>>, MegadexError> {
-        let idstore = self
-            .indices
-            .get(name)
-            .ok_or_else(|| MegadexError::IndexUndefined(name.into()))?;
+        let idstore = self.indices.get(name).ok_or_else(|| MegadexError::IndexUndefined(name.into()))?;
         reader.get(*idstore, key).map(Some).map_err(|e| e.into())
     }
 
@@ -171,9 +149,7 @@ where
         obj: &T,
     ) -> Result<(), MegadexError> {
         let blob = bincode::serialize(obj)?;
-        writer
-            .put(self.main, id, &Value::Blob(&blob))
-            .map_err(|e| e.into())
+        writer.put(self.main, id, &Value::Blob(&blob)).map_err(|e| e.into())
     }
 
     fn put_field_txn<'env, 's>(
@@ -183,25 +159,18 @@ where
         key: &'s str,
         id: &str,
     ) -> Result<(), MegadexError> {
-        let idstore = self
-            .indices
-            .get(field)
-            .ok_or_else(|| MegadexError::IndexUndefined(field.into()))?;
-        writer
-            .put(*idstore, key, &Value::Str(id))
-            .map_err(|e| e.into())
+        let idstore = self.indices.get(field).ok_or_else(|| MegadexError::IndexUndefined(field.into()))?;
+        writer.put(*idstore, key, &Value::Str(id)).map_err(|e| e.into())
     }
 
-    /// Delete an object and all of its indexed fields. 
+    /// Delete an object and all of its indexed fields.
     /// Note that the obj, `T` must be in the exact state in which it was put into the DB
-    /// for it to be successfully deleted. 
+    /// for it to be successfully deleted.
     pub fn del(&self, id: &str, obj: &T, fields: &[(String, String)]) -> Result<(), MegadexError> {
         let envlock = self.env.read().expect("Failed to acquire read lock");
         let mut writer: MultiWriter<&str> = envlock.write_multi()?;
         let blob = bincode::serialize(obj).map_err(|e| -> MegadexError { e.into() })?;
-        writer
-            .delete(self.main, id, &Value::Blob(&blob))
-            .map_err(|e| -> MegadexError { e.into() })?;
+        writer.delete(self.main, id, &Value::Blob(&blob)).map_err(|e| -> MegadexError { e.into() })?;
         for (field, key) in fields {
             self.del_field_txn(&mut writer, field, key, id)?;
         }
@@ -216,13 +185,8 @@ where
         key: K,
         id: &str,
     ) -> Result<(), MegadexError> {
-        let idstore = self
-            .indices
-            .get(field)
-            .ok_or_else(|| MegadexError::IndexUndefined(field.into()))?;
-        writer
-            .delete(*idstore, key, &Value::Str(id))
-            .map_err(|e| e.into())
+        let idstore = self.indices.get(field).ok_or_else(|| MegadexError::IndexUndefined(field.into()))?;
+        writer.delete(*idstore, key, &Value::Str(id)).map_err(|e| e.into())
     }
 }
 

@@ -124,6 +124,5 @@ fn test_where() {
 #[test]
 fn test_chaining() {
     let mut val = Plain::default();
-    val.set_public_accessible(1)
-        .set_second_public_accessible(true);
+    val.set_public_accessible(1).set_second_public_accessible(true);
 }
