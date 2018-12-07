@@ -5,7 +5,7 @@ use std::io::Error as IoError;
 use std::sync::PoisonError;
 
 #[derive(Debug, Fail)]
-pub enum MegadexError {
+pub enum MegadexDbError {
     #[fail(display = "Rkv error: {}", 0)]
     RkvError(StoreError),
     #[fail(display = "Bincode error: {}", 0)]
@@ -22,33 +22,33 @@ pub enum MegadexError {
     ValueError(String),
 }
 
-impl From<IoError> for MegadexError {
+impl From<IoError> for MegadexDbError {
     fn from(err: IoError) -> Self {
-        MegadexError::IoError(err)
+        MegadexDbError::IoError(err)
     }
 }
 
-impl<T> From<PoisonError<T>> for MegadexError {
+impl<T> From<PoisonError<T>> for MegadexDbError {
     fn from(err: PoisonError<T>) -> Self {
-        MegadexError::MutexError(format!("{}", err))
+        MegadexDbError::MutexError(format!("{}", err))
     }
 }
 
-impl From<StoreError> for MegadexError {
+impl From<StoreError> for MegadexDbError {
     fn from(err: StoreError) -> Self {
-        MegadexError::RkvError(err)
+        MegadexDbError::RkvError(err)
     }
 }
 
-impl From<Box<BinError>> for MegadexError {
+impl From<Box<BinError>> for MegadexDbError {
     fn from(err: Box<BinError>) -> Self {
-        MegadexError::BincodeError(err)
+        MegadexDbError::BincodeError(err)
     }
 }
 
-impl PartialEq for MegadexError {
-    fn eq(&self, other: &MegadexError) -> bool {
-        use crate::MegadexError::*;
+impl PartialEq for MegadexDbError {
+    fn eq(&self, other: &MegadexDbError) -> bool {
+        use crate::MegadexDbError::*;
         match self {
             RkvError(_) => {
                 if let RkvError(_) = other {

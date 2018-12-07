@@ -3,4 +3,5 @@
 members = [
     "megadex",
     "megadex_derive",
+    "example",
 ]

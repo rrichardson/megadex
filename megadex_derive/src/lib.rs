@@ -17,15 +17,13 @@ extern crate megadex;
 
 #[derive(Serialize, Deserialize, Megadex)]
 pub struct Foo {
+    #[id]
     id: String,
-
+    #[indexed]
+    foo: String,
 }
 
 fn main() {
-    let mut foo = Foo::default();
-    foo.set_private(1);
-    (*foo.private_mut()) += 1;
-    assert_eq!(*foo.private(), 2);
 }
 ```
 */
@@ -47,6 +45,7 @@ use syn::{
     DataStruct,
     DeriveInput,
     Field,
+    LitStr,
 };
 
 fn find_attr_name<'s>(field: &'s Field, name: &str) -> Option<&'s Attribute> {
@@ -92,7 +91,7 @@ impl Builder {
             // let _stock_methods = create_stock(name);
             for f in fields.iter() {
                 let id_attr = find_attr_name(f, "id").is_some();
-                let idx_attr = find_attr_name(f, "index").is_some();
+                let idx_attr = find_attr_name(f, "indexed").is_some();
                 if id_attr {
                     self.handle_id(f);
                 } else if idx_attr {
@@ -128,22 +127,25 @@ impl Builder {
     }
 
     fn gen_methods(&self) -> Vec<TokenStream2> {
-        let mut fieldvec =
-            self.fields.iter().map(|f| format!("\"{}\",", f.clone().ident.unwrap())).collect::<Vec<String>>();
-        fieldvec.insert(0, "[".into());
-        fieldvec.push("]".into());
+        let fields =
+            self.fields.iter().map(|f| {
+                let n = f.clone().ident.unwrap().to_string();
+                LitStr::new(n.as_str(), Span::call_site())
+            }).collect::<Vec<LitStr>>();
 
-        let mut fieldtuples = self
+        let fieldvec = quote!{ [ #(#fields),* ] };
+
+        let idents_b = self
             .fields
             .iter()
-            .map(|f| {
-                let field = f.clone().ident.unwrap();
-                format!("\"({}, self.{}.as_bytes())\",", field, field)
-            })
-            .collect::<Vec<String>>();
-        fieldtuples.insert(0, "[".into());
-        fieldtuples.push("]".into());
+            .map(|f| f.clone().ident.unwrap())
+            .collect::<Vec<Ident>>();
 
+        let idents_a = idents_b.clone().into_iter().map(|i|
+                LitStr::new(i.to_string().as_str(), Span::call_site())
+            ).collect::<Vec<LitStr>>();
+        let fieldtuples = quote!{ [ #((#idents_a, self.#idents_b.as_bytes())),* ] };
+         
         let fieldtuples2 = fieldtuples.clone();
         let fieldtuples3 = fieldtuples.clone();
         let fieldtuples4 = fieldtuples.clone();
@@ -154,24 +156,24 @@ impl Builder {
             .iter()
             .map(|field| {
                 let field_name = field.clone().ident.expect("Expected the field to have a name");
-
-                let mdex = Ident::new(&format!("Megadex<{}>", self.typename.clone()), Span::call_site());
+                let field_str = LitStr::new(field_name.to_string().as_str(), Span::call_site());
+                let typename = self.typename.clone();
+                let mdex = quote!{ MegadexDb<#typename> };
 
                 let fn_find_by = Ident::new(&format!("find_by_{}", field_name), Span::call_site());
 
                 let fn_id_by = Ident::new(&format!("id_by_{}", field_name), Span::call_site());
 
                 let ty = field.ty.clone();
-
                 quote! {
-                    pub fn #fn_find_by(md: &#mdex, field: &#ty) -> Result<Vec<Self>, MegadexError> {
-                        md.get_by_field(#field_name, field.as_bytes())
+                    pub fn #fn_find_by(md: &#mdex, field: &#ty) -> Result<Vec<Self>, MegadexDbError> {
+                        md.get_by_field(#field_str, field.as_bytes())
                     }
 
-                    pub fn #fn_id_by(md: &#mdex, key: &#ty) -> Result<Vec<&[u8]>, MegadexError> {
-                        let envlock = mdf.get_env().read()?;
+                    pub fn #fn_id_by(md: &#mdex, key: &#ty) -> Result<Vec<&[u8]>, MegadexDbError> {
+                        let envlock = md.get_env().read()?;
                         let reader = envlock.read_multi()?;
-                        let mditer = md.get_ids_by_field(&reader, #field_name, key.as_bytes())?;
+                        let mditer = md.get_ids_by_field(&reader, #field_str, key.as_bytes())?;
                         Ok(mditer.map(|iter| iter.collect::<Vec<&[u8]>>()))
                     }
 
@@ -179,42 +181,44 @@ impl Builder {
             })
             .collect::<Vec<TokenStream2>>();
 
+        //panic!(streams.iter().map(|s| s.to_string()).collect::<Vec<String>>().join(" \n "));
         let id = self.id.as_ref().expect("At least 1 id attribute field must be specified");
         let id_name = id.clone().ident.expect("Expected the field to have a name");
 
         let mytype = self.typename.clone();
 
-        let mdex = Ident::new(&format!("Megadex<{}>", &mytype), Span::call_site());
+        let mdex = quote!{ MegadexDb<#mytype> };
 
         let ty = id.ty.clone();
 
-        let str = quote! {
-            pub  fn init(db: Db) -> Result<#mdex, MegadexError> {
-                Megadex::new(db, #(#fieldvec)*)
+        let s = quote! {
+            pub  fn init(db: Db) -> Result<#mdex, MegadexDbError> {
+                MegadexDb::new(db, #(#fieldvec)*)
             }
 
-            pub fn save(&self, md: &#mdex) -> Result<(), MegadexError> {
+            pub fn save(&self, md: &#mdex) -> Result<(), MegadexDbError> {
                 md.put(md, self.#id_name.as_bytes(), self, #(#fieldtuples2)*)
             }
 
-            pub fn erase(&self, md: &#mdex) -> Result<(), MegadexError> {
+            pub fn erase(&self, md: &#mdex) -> Result<(), MegadexDbError> {
                 md.del(md, self.#id_name.as_bytes(), self, #(#fieldtuples3)*)
             }
 
-            pub fn get(md: &#mdex, id: &#ty) -> Result<Option<Self>, MegadexError> {
+            pub fn get(md: &#mdex, id: &#ty) -> Result<Option<Self>, MegadexDbError> {
                 md.get(id.as_bytes())
             }
 
-            pub fn del(md: &#mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexError> {
-                md.del(md, id.as_bytes(), &bincode::serialize(val)?.map_err(e.into()), #(#fieldtuples4)*)
+            pub fn del(md: &#mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexDbError> {
+                md.del(md, id.as_bytes(), &bincode::serialize(val)?.map_err(|e| e.into()), #(#fieldtuples4)*)
             }
 
-            pub fn insert(md: &#mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexError> {
-                md.put(md, id.as_bytes(), &bincode::serialize(val)?.map_err(e.into()), #(#fieldtuples5)*)
+            pub fn insert(md: &#mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexDbError> {
+                md.put(md, id.as_bytes(), &bincode::serialize(val)?.map_err(|e| e.into()), #(#fieldtuples5)*)
             }
         };
 
-        streams.push(str);
+        //panic!(s.to_string());
+        streams.push(s);
 
         streams
     }

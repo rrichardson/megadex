@@ -9,13 +9,13 @@ authors = ["Rick Richardson <rick.richardson@gmail.com>"]
 license = "MIT"
 
 categories = ["development-tools::procedural-macro-helpers", "database"]
-keywords = ["macro", "rkv", "lmdb"]
+keywords = ["macro", "rkv", "lmdb", "db"]
 readme = "README.md"
 repository = "https://github.com/rrichardson/megadex"
 
 [badges]
-travis-ci = { repository = "https://github.com/Hoverbear/getset" }
-appveyor = { repository = "https://github.com/Hoverbear/getset", service = "github" }
+travis-ci = { repository = "https://github.com/rrichardson/megadex_derive" }
+appveyor = { repository = "https://github.com/rrichardson/megadex_derive", service = "github" }
 
 [lib]
 proc-macro = true
@@ -24,3 +24,6 @@ proc-macro = true
 quote = "0.6.10"
 syn = "0.15.21"
 proc-macro2 = { version = "0.4.24", default-features = false }
+
+[dev-dependencies]
+megadex = { path = "../megadex" }
