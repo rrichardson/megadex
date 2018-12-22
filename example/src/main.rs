@@ -19,7 +19,6 @@ pub struct Veggie {
     weight: f64,
 }
 
-#[test]
 fn check_veggies() {
     let db = Db::new_temp().unwrap();
     let md =  Veggie::init(db).unwrap();
@@ -52,4 +51,8 @@ fn check_veggies() {
 
     Veggie::del(&md, &"garlic".into(), &g).unwrap();
 
+}
+
+fn main() {
+    check_veggies();
 }
