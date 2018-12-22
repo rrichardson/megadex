@@ -49,11 +49,6 @@ const _IMPL_SERIALIZE_FOR_Veggie: () = {
     #[allow(rust_2018_idioms)]
     extern crate serde as _serde;
     #[allow(unused_macros)]
-    macro_rules! try(( $ __expr : expr ) => {
-                         match $ __expr {
-                         _serde :: export :: Ok ( __val ) => __val , _serde ::
-                         export :: Err ( __err ) => {
-                         return _serde :: export :: Err ( __err ) ; } } });
     #[automatically_derived]
     impl _serde::Serialize for Veggie {
         fn serialize<__S>(&self, __serializer: __S) -> _serde::export::Result<__S::Ok, __S::Error>
@@ -120,11 +115,6 @@ const _IMPL_DESERIALIZE_FOR_Veggie: () = {
     #[allow(rust_2018_idioms)]
     extern crate serde as _serde;
     #[allow(unused_macros)]
-    macro_rules! try(( $ __expr : expr ) => {
-                         match $ __expr {
-                         _serde :: export :: Ok ( __val ) => __val , _serde ::
-                         export :: Err ( __err ) => {
-                         return _serde :: export :: Err ( __err ) ; } } });
     #[automatically_derived]
     impl<'de> _serde::Deserialize<'de> for Veggie {
         fn deserialize<__D>(__deserializer: __D) -> _serde::export::Result<Self, __D::Error>
@@ -464,7 +454,7 @@ impl Veggie {
         let e = md.get_env();
         let envlock = e.read()?;
         let reader = envlock.read()?;
-        md.get_ids_by_field::<String, String>(&reader, "flavor", key)
+        md.get_ids_by_field(&reader, "flavor", key)
     }
     pub fn find_by_leaves(
         md: &MegadexDb<Veggie>,
@@ -479,12 +469,12 @@ impl Veggie {
         let e = md.get_env();
         let envlock = e.read()?;
         let reader = envlock.read()?;
-        md.get_ids_by_field::<String, String>(&reader, "leaves", key)
+        md.get_ids_by_field(&reader, "leaves", key)
     }
     pub fn init(db: Db) -> Result<MegadexDb<Veggie>, MegadexDbError> {
         MegadexDb::new(db, &["flavor", "leaves"])
     }
-    pub fn save(&self, md: &MegadexDb<Veggie>) -> Result<(), MegadexDbError> {
+    pub fn save(&self, md: &mut MegadexDb<Veggie>) -> Result<(), MegadexDbError> {
         md.put(
             &self.name,
             self,
@@ -502,10 +492,9 @@ impl Veggie {
             ],
         )
     }
-    pub fn erase(&self, md: &MegadexDb<Veggie>) -> Result<(), MegadexDbError> {
+    pub fn erase(&self, md: &mut MegadexDb<Veggie>) -> Result<(), MegadexDbError> {
         md.del(
             &self.name,
-            self,
             &[
                 (
                     "flavor",
@@ -523,10 +512,9 @@ impl Veggie {
     pub fn get(md: &MegadexDb<Veggie>, id: &String) -> Result<Option<Self>, MegadexDbError> {
         md.get(id)
     }
-    pub fn del(md: &MegadexDb<Veggie>, id: &String, val: &Veggie) -> Result<(), MegadexDbError> {
+    pub fn del(md: &mut MegadexDb<Veggie>, id: &String) -> Result<(), MegadexDbError> {
         md.del(
             &id,
-            val,
             &[
                 (
                     "flavor",
@@ -539,7 +527,11 @@ impl Veggie {
             ],
         )
     }
-    pub fn insert(md: &MegadexDb<Veggie>, id: &String, val: &Veggie) -> Result<(), MegadexDbError> {
+    pub fn insert(
+        md: &mut MegadexDb<Veggie>,
+        id: &String,
+        val: &Veggie,
+    ) -> Result<(), MegadexDbError> {
         md.put(
             &id,
             val,
@@ -559,7 +551,7 @@ impl Veggie {
 
 fn check_veggies() {
     let db = Db::new_temp().unwrap();
-    let md = Veggie::init(db).unwrap();
+    let mut md = Veggie::init(db).unwrap();
 
     let g = Veggie {
         name: "garlic".into(),
@@ -575,8 +567,8 @@ fn check_veggies() {
         weight: 2.5,
     };
 
-    r.save(&md).unwrap();
-    Veggie::insert(&md, &"rhubarb".into(), &r).unwrap();
+    r.save(&mut md).unwrap();
+    Veggie::insert(&mut md, &"rhubarb".into(), &r).unwrap();
 
     let g1 = Veggie::get(&md, &"garlic".into()).unwrap().unwrap();
     let r1 = Veggie::get(&md, &"rhubarb".into()).unwrap().unwrap();
@@ -585,9 +577,9 @@ fn check_veggies() {
 
     let res = Veggie::id_by_leaves(&md, &"pointy".into()).unwrap();
 
-    r1.erase(&md).unwrap();
+    r1.erase(&mut md).unwrap();
 
-    Veggie::del(&md, &"garlic".into(), &g).unwrap();
+    Veggie::del(&mut md, &"garlic".into()).unwrap();
 }
 
 fn main() {

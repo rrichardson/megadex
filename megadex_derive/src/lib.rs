@@ -150,8 +150,8 @@ impl Builder {
             ).collect::<Vec<LitStr>>();
         let idents_a1 = idents_a.clone();
         let idents_b1 = idents_b.clone();
-        let fieldtuples = quote!{ [ #((#idents_a, &bincode::serialize(&self.#idents_b).map_err(|e| -> MegadexDbError { e.into() })?)),* ] };
-        let valtuples = quote!{ [ #((#idents_a1, &bincode::serialize(&val.#idents_b1).map_err(|e| -> MegadexDbError { e.into() })?)),* ] };
+        let fieldtuples = quote!{ [ #((#idents_a, &self.#idents_b)),* ] };
+        let valtuples = quote!{ [ #((#idents_a1, &&val.#idents_b1)),* ] };
         let valtuples2 = valtuples.clone();
         let fieldtuples2 = fieldtuples.clone();
         let fieldtuples3 = fieldtuples.clone();
@@ -177,8 +177,8 @@ impl Builder {
                     pub fn #fn_id_by(md: &#mdex, key: &#ty) -> Result<Vec<#id_type>, MegadexDbError> {
                         let e = md.get_env();
                         let envlock = e.read()?;
-                        let reader = envlock.read_multi()?;
-                        md.get_ids_by_field::<#ty, #id_type>(&reader, #field_str, key)
+                        let reader = envlock.read()?;
+                        md.get_ids_by_field(&reader, #field_str, key)
                     }
 
                 }
@@ -200,23 +200,23 @@ impl Builder {
                 MegadexDb::new(db, &#(#fieldvec)*)
             }
 
-            pub fn save(&self, md: &#mdex) -> Result<(), MegadexDbError> {
+            pub fn save(&self, md: &mut #mdex) -> Result<(), MegadexDbError> {
                 md.put(&self.#id_name, self, &#(#fieldtuples2)*)
             }
 
-            pub fn erase(&self, md: &#mdex) -> Result<(), MegadexDbError> {
-                md.del(&self.#id_name, self, &#(#fieldtuples3)*)
+            pub fn erase(&self, md: &mut #mdex) -> Result<(), MegadexDbError> {
+                md.del(&self.#id_name, &#(#fieldtuples3)*)
             }
 
             pub fn get(md: &#mdex, id: &#ty) -> Result<Option<Self>, MegadexDbError> {
                 md.get(id)
             }
 
-            pub fn del(md: &#mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexDbError> {
-                md.del(&id, val, &#(#valtuples)*)
+            pub fn del(md: &mut #mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexDbError> {
+                md.del(&id, &#(#valtuples)*)
             }
 
-            pub fn insert(md: &#mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexDbError> {
+            pub fn insert(md: &mut #mdex, id: &#ty, val: &#mytype) -> Result<(), MegadexDbError> {
                 md.put(&id, val, &#(#valtuples2)*)
             }
         };
