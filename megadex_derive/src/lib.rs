@@ -28,11 +28,12 @@ fn main() {
 ```
 */
 
+// still needs a
 extern crate proc_macro;
-extern crate syn;
-#[macro_use]
-extern crate quote;
-extern crate proc_macro2;
+
+use syn;
+use quote::quote;
+use proc_macro2;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
