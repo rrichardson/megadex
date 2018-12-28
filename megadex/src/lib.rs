@@ -56,7 +56,7 @@ impl Db {
     /// or if one already exists, it will use it.
     /// This will create The main struct store for T and
     /// the supporting secondary indexes to find the id for T
-    pub fn new<'p, P: Into<&'p Path>>(dir: P) -> Result<Db, MegadexDbError> {
+    pub fn new<'p, P: Into<&'p Path>>(dir: P) -> Result<Self, MegadexDbError> {
         let mut writer = Manager::singleton().write().expect("Failed to get Manager Singleton writer");
         let env = writer.get_or_create(dir, Rkv::new)?;
         Ok(Db {
@@ -82,7 +82,7 @@ impl<T> MegadexDb<T>
 where
     T: Serialize + DeserializeOwned,
 {
-    pub fn new(db: Db, fields: &[&str]) -> Result<MegadexDb<T>, MegadexDbError> {
+    pub fn new(db: Db, fields: &[&str]) -> Result<Self, MegadexDbError> {
         let env = db.env;
         let store = env.write().expect("failed to acquire env write lock").open_single("_main_", true, None)?;
 
@@ -203,7 +203,7 @@ where
         writer.commit().map_err(|e| e.into())
     }
 
-    fn put_id_txn<'env, 's>(
+    fn put_id_txn<'s>(
         &mut self,
         writer: &mut RwTransaction,
         id: &'s [u8],
@@ -213,7 +213,7 @@ where
         self.main.put(writer, id, &Value::Blob(&blob)).map_err(|e| e.into())
     }
 
-    fn put_field_txn<'env, 's, K: Serialize>(
+    fn put_field_txn<'s, K: Serialize>(
         &mut self,
         writer: &mut RwTransaction,
         field: &str,
