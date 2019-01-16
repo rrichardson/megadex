@@ -1,5 +1,5 @@
 [package]
-name = "megadex"
+name = "megadex_rkv"
 version = "0.1.0"
 authors = ["Rick Richardson <rick.richardson@gmail.com>"]
 edition = "2018"

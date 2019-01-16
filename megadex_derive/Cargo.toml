@@ -26,6 +26,6 @@ syn = "0.15.21"
 proc-macro2 = { version = "0.4.24", default-features = false }
 
 [dev-dependencies]
-megadex = { path = "../megadex" }
+megadex_rkv = "0.1.0"
 serde_derive = "1.0.84"
 serde = "1.0.84"

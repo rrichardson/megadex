@@ -13,7 +13,7 @@ using a generated `find_by_<member>` function
 
 ```rust
 use megadex_derive::Megadex;
-use megadex::{Db, MegadexDb, MegadexDbError};
+use megadex_rkv::{Db, MegadexDb, MegadexDbError};
 use serde_derive::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Megadex)]
