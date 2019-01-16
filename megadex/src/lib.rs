@@ -9,6 +9,7 @@ use rkv::{
     Transaction,
     Rkv,
     Value,
+    StoreOptions,
 };
 use rkv::store::multi::Iter as MdIter;
 
@@ -84,7 +85,7 @@ where
 {
     pub fn new(db: Db, fields: &[&str]) -> Result<Self, MegadexDbError> {
         let env = db.env;
-        let store = env.write().expect("failed to acquire env write lock").open_single("_main_", true, None)?;
+        let store = env.write().expect("failed to acquire env write lock").open_single("_main_", StoreOptions::create())?;
 
         let mut md = MegadexDb {
             env,
@@ -99,7 +100,7 @@ where
     fn insert_fields(&mut self, fields: &[&str]) -> Result<(), MegadexDbError> {
         for f in fields.into_iter() {
             let store =
-                self.env.write().expect("failed to acquire env write lock").open_multi(f.to_owned(), true, None)?;
+                self.env.write().expect("failed to acquire env write lock").open_multi(f.to_owned(), StoreOptions::create())?;
             self.indices.insert((*f).into(), store);
         }
         Ok(())

@@ -1,7 +1,4 @@
 
-extern crate megadex_derive;
-extern crate serde_derive;
-extern crate megadex;
 use megadex_derive::Megadex;
 use megadex::{ Db, MegadexDb, MegadexDbError };
 use serde_derive::{ Serialize, Deserialize };
@@ -37,7 +34,7 @@ fn check_veggies() {
     };
 
     r.save(&mut md).unwrap();
-    Veggie::insert(&mut md, &"rhubarb".into(), &r).unwrap();
+    Veggie::insert(&mut md, &"garlic".into(), &g).unwrap();
 
     let _g1 = Veggie::get(&md, &"garlic".into()).unwrap().unwrap();
     let r1 = Veggie::get(&md, &"rhubarb".into()).unwrap().unwrap();

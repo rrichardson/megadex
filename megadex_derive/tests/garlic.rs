@@ -1,16 +1,16 @@
-#[macro_use]
-extern crate megadex_derive;
 
-extern crate megadex;
-use megadex::Megadex;
+use megadex_derive::Megadex;
+use megadex::{ Db, MegadexDb, MegadexDbError };
+use serde_derive::{ Serialize, Deserialize };
 
 #[derive(Debug, Serialize, Deserialize, Megadex)]
+
 pub struct Veggie {
     #[id]
     name: String,
-    #[index]
+    #[indexed]
     flavor: String,
-    #[index]
+    #[indexed]
     leaves: String,
     weight: f64,
 }
@@ -18,7 +18,7 @@ pub struct Veggie {
 #[test]
 fn check_veggies() {
     let db = Db::new_temp().unwrap();
-    let md: Veggie::init(db);
+    let mut md =  Veggie::init(db).unwrap();
 
     let g = Veggie {
         name: "garlic".into(),
@@ -34,18 +34,19 @@ fn check_veggies() {
         weight: 2.5,
     };
 
-    r.save(&md).unwrap();
-    Veggie::insert(&md, "rhubarb", &r).unwrap();
+    r.save(&mut md).unwrap();
+    Veggie::insert(&mut md, &"garlic".into(), &g).unwrap();
 
-    let g1 = Veggie::get(&md, "garlic").unwrap().unwrap();
-    let r1 = Veggie::get(&md, "rhubarb").unwrap().unwrap();
+    let _g1 = Veggie::get(&md, &"garlic".into()).unwrap().unwrap();
+    let r1 = Veggie::get(&md, &"rhubarb".into()).unwrap().unwrap();
 
-    let res = Veggie::find_by_flavor(&md, "bold").unwrap();
+    let _res = Veggie::find_by_flavor(&md, &"bold".into()).unwrap();
 
-    let res = Veggie::id_by_leaves(&md, "pointy").unwrap();
+    let _res = Veggie::id_by_leaves(&md, &"pointy".into()).unwrap();
 
-    r1.erase(&md).unwrap();
+    r1.erase(&mut md).unwrap();
 
-    Veggie::del(&md, "garlic", &g).unwrap();
+    Veggie::del(&mut md, &"garlic".into(), &g).unwrap();
 
 }
+

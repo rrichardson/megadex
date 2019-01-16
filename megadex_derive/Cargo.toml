@@ -3,7 +3,7 @@ name = "megadex_derive"
 description = """
 Syntactic sugar for managing collections of structs which have multiple indexed accessors. 
 """
-edition = '2018' 
+edition = "2018"
 version = "0.0.6"
 authors = ["Rick Richardson <rick.richardson@gmail.com>"]
 license = "MIT"
@@ -27,3 +27,5 @@ proc-macro2 = { version = "0.4.24", default-features = false }
 
 [dev-dependencies]
 megadex = { path = "../megadex" }
+serde_derive = "1.0.84"
+serde = "1.0.84"

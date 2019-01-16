@@ -12,8 +12,9 @@ If a field is tagged with #[indexed] then it will be able to be used to retrieve
 using a generated `find_by_<member>` function
 
 ```rust
-#[macro_use]
-extern crate megadex;
+use megadex_derive::Megadex;
+use megadex::{Db, MegadexDb, MegadexDbError};
+use serde_derive::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Megadex)]
 pub struct Foo {
