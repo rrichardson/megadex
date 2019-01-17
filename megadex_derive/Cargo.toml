@@ -1,17 +1,19 @@
+
 [package]
 name = "megadex_derive"
+authors = ["Rick Richardson <rick.richardson@gmail.com>"]
+repository = "https://github.com/rrichardson/megadex"
+homepage = "https://github.com/rrichardson/megadex"
 description = """
 Syntactic sugar for managing collections of structs which have multiple indexed accessors. 
 """
 edition = "2018"
-version = "0.0.6"
-authors = ["Rick Richardson <rick.richardson@gmail.com>"]
+version = "0.1.0"
 license = "MIT"
 
 categories = ["development-tools::procedural-macro-helpers", "database"]
 keywords = ["macro", "rkv", "lmdb", "db"]
 readme = "README.md"
-repository = "https://github.com/rrichardson/megadex"
 
 [badges]
 travis-ci = { repository = "https://github.com/rrichardson/megadex_derive" }
@@ -26,6 +28,6 @@ syn = "0.15.21"
 proc-macro2 = { version = "0.4.24", default-features = false }
 
 [dev-dependencies]
-megadex_rkv = { path="../megadex_rkv" }
+megadex_rkv = "0.1.1"
 serde_derive = "1.0.84"
 serde = "1.0.84"
