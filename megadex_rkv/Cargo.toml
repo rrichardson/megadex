@@ -2,6 +2,8 @@
 name = "megadex_rkv"
 version = "0.1.0"
 authors = ["Rick Richardson <rick.richardson@gmail.com>"]
+description = "A lib that makes it easy to index and retrieve structs by any of their fields"
+license = "MIT"
 edition = "2018"
 
 [dependencies]
