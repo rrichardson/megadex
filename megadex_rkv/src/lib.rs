@@ -10,6 +10,7 @@ use rkv::{
     Rkv,
     Value,
     StoreOptions,
+    StoreError,
 };
 use rkv::store::multi::Iter as MdIter;
 
@@ -131,23 +132,18 @@ where
         let envlock = self.env.read().expect("Failed to acquire read lock");
         let reader = envlock.read()?;
         let res = self.get_ids_by_field_raw(&reader, name, &keybytes)?;
-        if res.is_some() {
-            let ids = res.unwrap();
-            ids.map(|(_, val)| match val {
-                Ok(Some(Value::Blob(id))) => {
-                    match self.main.get(&reader, id) {
-                        Ok(Some(Value::Blob(o))) => bincode::deserialize(&o).map_err(|e| e.into()),
-                        Ok(None) => Err(MegadexDbError::ValueError("Object not found for id".into())),
-                        e => Err(MegadexDbError::InvalidType("Blob".into(), format!("{:?}", e))),
-                    }
-                },
-                Ok(Some(_)) => Err(MegadexDbError::ValueError("Invalid Field Index Type".into())),
-                Ok(None) => Err(MegadexDbError::ValueError("Object not found for id".into())),
-                Err(e) => Err(MegadexDbError::from(e))
-            }).collect()
-        } else {
-            Ok(Vec::new())
-        }
+        res.map(|ids| ids.map(|id| match id { 
+            Ok((_, Some(Value::Blob(id)))) => {
+                match self.main.get(&reader, id) {
+                    Ok(Some(Value::Blob(o))) => bincode::deserialize(&o).map_err(|e| e.into()),
+                    Ok(None) => Err(MegadexDbError::ValueError("Object not found for id".into())),
+                    e => Err(MegadexDbError::InvalidType("Blob".into(), format!("{:?}", e))),
+                }
+            },
+            Ok((_, Some(_))) => Err(MegadexDbError::ValueError("Invalid Field Index Type".into())),
+            Ok((_, None)) => Err(MegadexDbError::ValueError("Object not found for id".into())),
+            Err(_) => Err(MegadexDbError::ValueError("Object not found for id".into())),
+        })).map_or(Ok(Vec::new()), |v| v.collect::<Result<Vec<T>, _>>())
     }
     
     /// Retrieve the exact type of ids that are indexed by the provided field
@@ -164,19 +160,19 @@ where
             I: DeserializeOwned,
             Txn: Transaction,
     {
-        let unpack = |obj : Result<Option<Value>, MegadexDbError>| -> Option<I> {
+        let unpack = |obj : Result<(_, Option<Value>), StoreError> | -> Option<I> {
             match obj {
-                Ok(Some(Value::Blob(bytes))) => {
+                Ok((_, Some(Value::Blob(bytes)))) => {
                     bincode::deserialize(bytes).map_err(|e : bincode::Error| -> MegadexDbError {  e.into() }).ok()
                 }, 
-                Ok(Some(_)) => None,
-                Ok(None) => None,
+                Ok((_, Some(_))) => None,
+                Ok((_, None)) => None,
                 Err(_) => None,
             }
         };
         match self.get_ids_by_field_raw(reader, name, &bincode::serialize(key).map_err(MegadexDbError::from)?)? {
             None => Ok(Vec::new()),
-            Some(iter) => Ok(iter.map(|(_, v)| unpack(v.map_err(|e| e.into()))).flatten().collect::<Vec<I>>()),
+            Some(iter) => Ok(iter.map(unpack).flatten().collect::<Vec<I>>())
         }
     }
 

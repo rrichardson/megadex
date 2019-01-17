@@ -1,6 +1,6 @@
 
 use megadex_derive::Megadex;
-use megadex::{ Db, MegadexDb, MegadexDbError };
+use megadex_rkv::{ Db, MegadexDb, MegadexDbError };
 use serde_derive::{ Serialize, Deserialize };
 
 #[derive(Debug, Serialize, Deserialize, Megadex)]

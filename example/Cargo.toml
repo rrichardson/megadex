@@ -5,7 +5,7 @@ authors = ["Rick Richardson <rick.richardson@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-megadex = { path = "../megadex_rkv" }
+megadex_rkv = { path = "../megadex_rkv" }
 megadex_derive = { path = "../megadex_derive" }
 serde_derive = "1.0.80"
 serde = "1.0.80"
