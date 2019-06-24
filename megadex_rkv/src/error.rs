@@ -1,6 +1,6 @@
 use bincode::ErrorKind as BinError;
 use failure::Fail;
-use rkv::{ StoreError, LmdbError };
+use rkv::{ StoreError };
 use std::io::Error as IoError;
 use std::sync::PoisonError;
 
@@ -20,8 +20,6 @@ pub enum MegadexDbError {
     InvalidType(String, String),
     #[fail(display = "Value error : {}", 0)]
     ValueError(String),
-    #[fail(display = "Lmdb Error : {}", 0)]
-    LmdbError(LmdbError)
 }
 
 impl From<IoError> for MegadexDbError {
@@ -41,11 +39,6 @@ impl From<StoreError> for MegadexDbError {
         MegadexDbError::RkvError(err)
     }
 }
-impl From<LmdbError> for MegadexDbError {
-    fn from(err: LmdbError) -> Self {
-        MegadexDbError::LmdbError(err)
-    }
-}
 
 impl From<Box<BinError>> for MegadexDbError {
     fn from(err: Box<BinError>) -> Self {
@@ -59,13 +52,6 @@ impl PartialEq for MegadexDbError {
         match self {
             RkvError(_) => {
                 if let RkvError(_) = other {
-                    true
-                } else {
-                    false
-                }
-            },
-            LmdbError(_) => {
-                if let LmdbError(_) = other {
                     true
                 } else {
                     false

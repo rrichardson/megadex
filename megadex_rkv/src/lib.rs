@@ -5,8 +5,9 @@ use rkv::{
     Manager,
     SingleStore,
     MultiStore,
-    RwTransaction,
-    Transaction,
+    Writer,
+    Reader,
+    Readable,
     Rkv,
     Value,
     StoreOptions,
@@ -158,7 +159,7 @@ where
         where
             K: Serialize,
             I: DeserializeOwned,
-            Txn: Transaction,
+            Txn: Readable,
     {
         let unpack = |obj : Result<(_, Option<Value>), StoreError> | -> Option<I> {
             match obj {
@@ -177,7 +178,7 @@ where
     }
 
     /// Retrieve an iterator for the raw bytes of ids that are indexed by the provided field
-    pub fn get_ids_by_field_raw<'s, Txn: Transaction>(
+    pub fn get_ids_by_field_raw<'s, Txn: Readable>(
         &self,
         reader: &'s Txn,
         name: &str,
@@ -202,7 +203,7 @@ where
 
     fn put_id_txn<'s>(
         &mut self,
-        writer: &mut RwTransaction,
+        writer: &mut Writer,
         id: &'s [u8],
         obj: &T,
     ) -> Result<(), MegadexDbError> {
@@ -212,7 +213,7 @@ where
 
     fn put_field_txn<'s, K: Serialize>(
         &mut self,
-        writer: &mut RwTransaction,
+        writer: &mut Writer,
         field: &str,
         key: &'s K,
         id: &[u8],
@@ -240,7 +241,7 @@ where
 
     fn del_field_txn<K: Serialize>(
         &mut self,
-        writer: &mut RwTransaction,
+        writer: &mut Writer,
         field: &str,
         key: &K,
         id: &[u8],
